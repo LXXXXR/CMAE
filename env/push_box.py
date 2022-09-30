@@ -18,13 +18,36 @@ class Box(Entity):
 
 
 class PushBox(object):
-    def __init__(self, H=300, grid_size=15, n_actions=4, n_agents=2, checkpoint=False):
+    def __init__(
+        self,
+        H=300,
+        grid_size=15,
+        n_actions=4,
+        n_agents=2,
+        checkpoint=False,
+        random_start=False,
+    ):
+        assert n_agents == 2
         # (x1, y1, x2, y2, door1_opened, door2_opened, door3_opened)
-        self.observation_space = gym.spaces.MultiDiscrete([grid_size, grid_size, grid_size, grid_size, grid_size, grid_size])
+        self.observation_space = gym.spaces.MultiDiscrete(
+            [grid_size, grid_size, grid_size, grid_size, grid_size, grid_size]
+        )
         # each agent can choose one branch at each timestep
         self.action_space = gym.spaces.MultiDiscrete([n_actions] * n_agents)
-        self.init_agents = [Entity(4 + grid_size // 2, 4 + grid_size // 2), Entity(2 + grid_size // 2, 2 + grid_size // 2)]
-        self.init_box = Box(grid_size // 2, grid_size // 2)
+        # this is only for the two agents setting
+        if random_start:
+            init_pos = np.random.randint(0, grid_size, size=6)
+            self.init_agents = [
+                Entity(init_pos[0], init_pos[1]),
+                Entity(init_pos[2], init_pos[3]),
+            ]
+            self.init_box = Box(init_pos[4], init_pos[5])
+        else:
+            self.init_agents = [
+                Entity(4 + grid_size // 2, 4 + grid_size // 2),
+                Entity(2 + grid_size // 2, 2 + grid_size // 2),
+            ]
+            self.init_box = Box(grid_size // 2, grid_size // 2)
         self.wall_map = np.zeros((grid_size, grid_size))
         self.n_agents = n_agents
         self.grid_size = grid_size
@@ -34,7 +57,7 @@ class PushBox(object):
         self.agents, self.box = None, None
         self.checkpoint = checkpoint
         if self.checkpoint:
-            self.cur_checkpoint = {'dir':-1, 'dist':0}
+            self.cur_checkpoint = {"dir": -1, "dist": 0}
         self.success_rew = 1
 
     def reset(self):
@@ -44,8 +67,17 @@ class PushBox(object):
         self.step_count = 0
         self.done = False
         if self.checkpoint:
-            self.cur_checkpoint = {'dir':-1, 'dist':0}
-        return np.array([self.agents[0].x, self.agents[0].y, self.agents[1].x, self.agents[1].y, self.box.x, self.box.y])
+            self.cur_checkpoint = {"dir": -1, "dist": 0}
+        return np.array(
+            [
+                self.agents[0].x,
+                self.agents[0].y,
+                self.agents[1].x,
+                self.agents[1].y,
+                self.box.x,
+                self.box.y,
+            ]
+        )
 
     def step(self, action):
         assert not self.done, "error: Trying to call step() after an episode is done"
@@ -97,8 +129,14 @@ class PushBox(object):
 
     def _update_wall(self):
         self.wall_map[:] = 0
-        self.wall_map[max(0, self.box.y - self.box.radius) : min(self.grid_size, self.box.y + self.box.radius + 1),
-            max(0, self.box.x - self.box.radius) : min(self.grid_size, self.box.x + self.box.radius + 1)] = 1
+        self.wall_map[
+            max(0, self.box.y - self.box.radius) : min(
+                self.grid_size, self.box.y + self.box.radius + 1
+            ),
+            max(0, self.box.x - self.box.radius) : min(
+                self.grid_size, self.box.x + self.box.radius + 1
+            ),
+        ] = 1
 
     def _update_agent_location(self, agent_id, action):
         x, y = self.agents[agent_id].x, self.agents[agent_id].y
@@ -108,7 +146,9 @@ class PushBox(object):
             self.agents[agent_id].y += 1
         elif action == LEFT and x > 0 and self.wall_map[y, x - 1] == 0:
             self.agents[agent_id].x -= 1
-        elif action == RIGHT and x < self.grid_size - 1 and self.wall_map[y, x + 1] == 0:
+        elif (
+            action == RIGHT and x < self.grid_size - 1 and self.wall_map[y, x + 1] == 0
+        ):
             self.agents[agent_id].x += 1
 
     def _dist(self, e1, e2):
@@ -116,8 +156,12 @@ class PushBox(object):
 
     def _reward(self):
         rew = 0
-        if self.box.x - self.box.radius == 0 or self.box.x + self.box.radius == self.grid_size - 1 \
-                or self.box.y - self.box.radius == 0 or self.box.y + self.box.radius == self.grid_size - 1:
+        if (
+            self.box.x - self.box.radius == 0
+            or self.box.x + self.box.radius == self.grid_size - 1
+            or self.box.y - self.box.radius == 0
+            or self.box.y + self.box.radius == self.grid_size - 1
+        ):
             rew += self.success_rew
         if self.checkpoint:
             rew += self._check_point_rew()
@@ -125,37 +169,29 @@ class PushBox(object):
 
     def _check_point_rew(self):
         rew = 0
-        if self.cur_checkpoint['dir'] == -1:
+        if self.cur_checkpoint["dir"] == -1:
             if self.box.y > self.init_box.y:
-                self.cur_checkpoint['dir'] = 0
+                self.cur_checkpoint["dir"] = 0
             if self.box.x > self.init_box.x:
-                self.cur_checkpoint['dir'] = 1
+                self.cur_checkpoint["dir"] = 1
             if self.box.y < self.init_box.y:
-                self.cur_checkpoint['dir'] = 2
+                self.cur_checkpoint["dir"] = 2
             if self.box.x < self.init_box.x:
-                self.cur_checkpoint['dir'] = 3
-        elif self.cur_checkpoint['dir'] == 0:
-            if self.box.y - self.init_box.y > self.cur_checkpoint['dist']:
+                self.cur_checkpoint["dir"] = 3
+        elif self.cur_checkpoint["dir"] == 0:
+            if self.box.y - self.init_box.y > self.cur_checkpoint["dist"]:
                 rew += 0.1
-                self.cur_checkpoint['dist'] = self.box.y - self.init_box.y
-        elif self.cur_checkpoint['dir'] == 1:
-            if self.box.x - self.init_box.x > self.cur_checkpoint['dist']:
+                self.cur_checkpoint["dist"] = self.box.y - self.init_box.y
+        elif self.cur_checkpoint["dir"] == 1:
+            if self.box.x - self.init_box.x > self.cur_checkpoint["dist"]:
                 rew += 0.1
-                self.cur_checkpoint['dist'] = self.box.x - self.init_box.x
-        elif self.cur_checkpoint['dir'] == 2:
-            if self.init_box.y - self.box.y > self.cur_checkpoint['dist']:
+                self.cur_checkpoint["dist"] = self.box.x - self.init_box.x
+        elif self.cur_checkpoint["dir"] == 2:
+            if self.init_box.y - self.box.y > self.cur_checkpoint["dist"]:
                 rew += 0.1
-                self.cur_checkpoint['dist'] = self.init_box.y - self.box.y
-        elif self.cur_checkpoint['dir'] == 3:
-            if self.init_box.x - self.box.x > self.cur_checkpoint['dist']:
+                self.cur_checkpoint["dist"] = self.init_box.y - self.box.y
+        elif self.cur_checkpoint["dir"] == 3:
+            if self.init_box.x - self.box.x > self.cur_checkpoint["dist"]:
                 rew += 0.1
-                self.cur_checkpoint['dist'] = self.init_box.x - self.box.x
+                self.cur_checkpoint["dist"] = self.init_box.x - self.box.x
         return rew
-
-
-
-
-
-
-
-
