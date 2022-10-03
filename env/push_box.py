@@ -35,6 +35,7 @@ class PushBox(object):
         # each agent can choose one branch at each timestep
         self.action_space = gym.spaces.MultiDiscrete([n_actions] * n_agents)
         # this is only for the two agents setting
+        self.random_start = random_start
         if random_start:
             init_pos = np.random.randint(0, grid_size, size=6)
             self.init_agents = [
@@ -61,8 +62,20 @@ class PushBox(object):
         self.success_rew = 1
 
     def reset(self):
-        self.agents = copy.deepcopy(self.init_agents)
-        self.box = copy.deepcopy(self.init_box)
+        if self.random_start:
+            init_pos = np.random.randint(0, self.grid_size, size=6)
+            self.agents = [
+                Entity(init_pos[0], init_pos[1]),
+                Entity(init_pos[2], init_pos[3]),
+            ]
+            self.box = Box(init_pos[4], init_pos[5])
+        else:
+            self.agents = [
+                Entity(4 + self.grid_size // 2, 4 + self.grid_size // 2),
+                Entity(2 + self.grid_size // 2, 2 + self.grid_size // 2),
+            ]
+            self.box = Box(self.grid_size // 2, self.grid_size // 2)
+
         self._update_wall()
         self.step_count = 0
         self.done = False
