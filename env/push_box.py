@@ -26,6 +26,7 @@ class PushBox(object):
         n_agents=2,
         checkpoint=False,
         random_start=False,
+        random_margin=2,
     ):
         assert n_agents == 2
         # (x1, y1, x2, y2, door1_opened, door2_opened, door3_opened)
@@ -36,19 +37,7 @@ class PushBox(object):
         self.action_space = gym.spaces.MultiDiscrete([n_actions] * n_agents)
         # this is only for the two agents setting
         self.random_start = random_start
-        if random_start:
-            init_pos = np.random.randint(0, grid_size, size=6)
-            self.init_agents = [
-                Entity(init_pos[0], init_pos[1]),
-                Entity(init_pos[2], init_pos[3]),
-            ]
-            self.init_box = Box(init_pos[4], init_pos[5])
-        else:
-            self.init_agents = [
-                Entity(4 + grid_size // 2, 4 + grid_size // 2),
-                Entity(2 + grid_size // 2, 2 + grid_size // 2),
-            ]
-            self.init_box = Box(grid_size // 2, grid_size // 2)
+        self.random_margin = random_margin
         self.wall_map = np.zeros((grid_size, grid_size))
         self.n_agents = n_agents
         self.grid_size = grid_size
@@ -63,12 +52,16 @@ class PushBox(object):
 
     def reset(self):
         if self.random_start:
-            init_pos = np.random.randint(0, self.grid_size, size=6)
+            init_pos = np.random.randint(0, self.grid_size, size=4)
             self.agents = [
                 Entity(init_pos[0], init_pos[1]),
                 Entity(init_pos[2], init_pos[3]),
             ]
-            self.box = Box(init_pos[4], init_pos[5])
+            # to aviod 1 step termination
+            init_pos = np.random.randint(
+                self.random_margin, self.grid_size - self.random_margin, 2
+            )
+            self.box = Box(init_pos[0], init_pos[1])
         else:
             self.agents = [
                 Entity(4 + self.grid_size // 2, 4 + self.grid_size // 2),
